@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# Parse grub.cfg for available options. Only support top-level, for now.
+_options=$(cat /boot/grub/grub.cfg | \
+  awk '/menuentry |submenu /{if (b == 0) { print $0 }} /\{/{b += 1} /\}/{b -= 1}' |\
+  nl -v 0 |\
+  sed -rn "s/\bmenuentry\\s+['\"]([^'\"]+)['\"].*/\1/p")
+
+_print_options="$_options"
+
+_currently_selected_option="$(grub-editenv list | sed -nE 's/next_entry=(.*)/\1/p')"
+if [[ $_currently_selected_option != "" ]]
+then
+  # Add asterisk in front of current selection
+  _print_options=$(echo "$_options" |\
+    sed -E "s/  ${_currently_selected_option}"$'\t'"/* ${_currently_selected_option}"$'\t'"/")
+fi
+
+if [[ -z $1 ]]
+then
+  echo "Please supply one of the following numbers" 1>&2
+  echo "$_print_options"
+  exit 0
+fi
+
+if ! (echo "$_options" | grep -E "^\\s*$1\\s*"$'\t') >/dev/null
+then
+  echo "Invalid option number '$1'"
+  echo "$_print_options"
+  exit 2
+fi
+
+_script_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+/usr/bin/pkexec "${_script_dir}"/grub-reboot-now $1
+

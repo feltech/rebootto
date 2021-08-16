@@ -1,0 +1,8 @@
+#!/bin/bash
+set -eo pipefail
+
+[[ -z $1 ]] && exit 1
+
+echo "Reboot to option $1"
+grub-reboot "$1"
+reboot
